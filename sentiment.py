@@ -1,17 +1,30 @@
 import os
 import subprocess
 import sys
+from pathlib import Path
 from typing import Optional
 
-PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-PREDICT_SCRIPT = os.path.join(PROJECT_ROOT, "Model_ML", "predict.py")
+CURRENT_DIR = Path(__file__).resolve().parent
+PREDICT_SCRIPT: Optional[Path] = None
+for candidate in [
+	CURRENT_DIR / "Model_ML" / "predict.py",
+	CURRENT_DIR.parent / "Model_ML" / "predict.py",
+	CURRENT_DIR.parent / "py_api" / "Model_ML" / "predict.py",
+	CURRENT_DIR.parent.parent / "Model_ML" / "predict.py",
+]:
+	if candidate.is_file():
+		PREDICT_SCRIPT = candidate
+		break
+
+if PREDICT_SCRIPT:
+	print(f"[sentiment] Using predict script at {PREDICT_SCRIPT}", file=sys.stderr)
 
 def predict_sentiment(text: str) -> int:
 	if not text or not text.strip():
 		print("[sentiment] Empty text, defaulting to positive", file=sys.stderr)
 		return 1
-	if not os.path.isfile(PREDICT_SCRIPT):
-		print(f"[sentiment] Predict script not found at {PREDICT_SCRIPT}", file=sys.stderr)
+	if PREDICT_SCRIPT is None:
+		print("[sentiment] Predict script not found in candidate paths", file=sys.stderr)
 		return 1
 
 	# Try common python executables
@@ -19,7 +32,7 @@ def predict_sentiment(text: str) -> int:
 	for exe in candidates:
 		try:
 			out = subprocess.check_output(
-				[exe, PREDICT_SCRIPT, text],
+				[exe, str(PREDICT_SCRIPT), text],
 				env={**os.environ, "PYTHONIOENCODING": "utf-8"},
 				stderr=subprocess.STDOUT,
 				timeout=30,
